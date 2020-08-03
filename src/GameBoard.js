@@ -5,19 +5,54 @@ import Card from './Card'
 export default function GameBoard () {
   let [cards, setCards] = useState(buildCards())
   let [openedCards, setOpenedCard] = useState([])
-  let [completed, setCompleted] = useState([])
-  let [newGame, setNewGame] = useState(false)
-  let [disabled, setDisabled] = useState(false)
-  let [counter, setCounter] = useState(72)
+  let [matches, setMatches] = useState([])
+
+  let [counter, setCounter] = useState(12)
   let [paused, setPaused] = useState(false)
 
-  const onCardClick = card => () => {
+  let [newGame, setNewGame] = useState(false)
+
+  useEffect(() => {
+    let timer;
+    if (counter > 0 && paused) {
+      timer = setTimeout(() => setCounter(c => c - 1), 1000);
+    }
+    return () => {
+      if (timer) {
+        clearTimeout(timer);
+      }
+    };
+  }, [counter, paused]);
+
+  useEffect(() => {
+    if(!paused) {
+        setPaused(false)
+    }
+  }, [paused])
+
+  function startPauseTimer() {
+    setPaused(counter ? !paused : false)
+  }
+  function resetTimer() {
+    setPaused(false);
+    setCounter(12)
+  }
+  function onExitBtnClick() {
+    setNewGame(false)
+    resetTimer()
+  }
+  function onNewGameBtnClick() {
+    setNewGame(true)
+    startPauseTimer()
+  }
+
+    const onCardClick = card => () => {
     if (openedCardsFull(openedCards) || cardAlreadyInOpened(openedCards, card)) return
     const newOpenedCards = [...openedCards, card]
     setOpenedCard(newOpenedCards)
     const openedCardsMatched = validateOpened(newOpenedCards)
     if (openedCardsMatched) {
-      setCompleted([...completed, newOpenedCards[0].type])
+      setMatches([...matches, newOpenedCards[0].type])
     }
     if (openedCardsFull(newOpenedCards)) {
       resetOpenedAfter(1000)
@@ -41,83 +76,42 @@ export default function GameBoard () {
   }
 
   useEffect(() => {
-    const newCards = cards.map(card => ({
+    setCards(cards.map(card => ({
       ...card,
       flipped:
         openedCards.find(c => c.id === card.id) ||
-        completed.includes(card.type),
-    }))
-    setCards(newCards)
-  }, [openedCards, completed])
+        matches.includes(card.type),
+    })))
 
-  function onNewGameBtnClick () {
-    setNewGame(true)
-    startPauseTimer()
-  }
-  function onExitBtnClick () {
-    setNewGame(false)
-    resetTimer()
-  }
+  }, [openedCards, matches])
 
-
-  useEffect(() => {
-    if(paused) {
-      let timer = setInterval(() => {
-        setCounter(counter => Math.max(counter - 1))
-      }, 1000);
-      return () => {
-        clearInterval(timer);
-
-      };
-    }
-  }, [paused])
-
-  useEffect(() => {
-    if(!paused) {
-        setPaused(false)
-    }
-  }, [paused])
-
-  function startPauseTimer() {
-    setPaused(counter ? !paused : false)
-  }
-  function resetTimer() {
-    setPaused(false);
-    setCounter(72)
-  }
-  function disabledClick () {
-    if (paused) {
-      setDisabled(true)
-      console.log(paused)
-    }
-  }
   return (
-    <div>
-      {newGame ?
-        <div className="time">
-          Time Left:
-          <span>{counter} s</span>
-        </div>
-         : <h3>Are you ready?</h3>
-      }
+   <div>
+     {newGame ?
+       <div className="time">
+         Time Left:
+         <span>{counter} s {counter > 0 && !paused ? 'Paused' : ''}</span>
+       </div>
+        : <h3>Are you ready?</h3>
+     }
       <div className="board">
-        {cards.map(card => (
-          <Card {...card} onClick={!disabled && onCardClick(card)} key={card.id} aria-disabled={disabledClick}/>
-        ))}
-      </div>
-      {newGame ?
-        <div>
-          <button onClick={onExitBtnClick}>Exit</button>
-          <button type="button" className="btn-play" disabled={!counter} onClick={startPauseTimer}>
-            {paused ? <span>Pause</span> : <span>Resume</span>}
-          </button>
-        </div> :
-        <button className="newGame-btn" onClick={onNewGameBtnClick}>new game</button>
-      }
-    </div>
+       {cards.map(card => (
+         <Card card={card} onClick={onCardClick(card)} key={card.id}/>
+       ))}
+     </div>
+
+     {newGame ?
+       <div>
+         <button onClick={onExitBtnClick}>Exit</button>
+         <button type="button" className="btn-play" disabled={!counter} onClick={startPauseTimer}>
+           {counter > 0 && paused ? <span>Pause</span> : <span>Resume</span>}
+         </button>
+       </div> :
+       <button className="newGame-btn" onClick={onNewGameBtnClick}>new game</button>
+     }
+   </div>
   )
 }
-
 
 function buildCards() {
   let id = 0
@@ -127,24 +121,18 @@ function buildCards() {
     let createCard = () => ({
       id: id++,
       type: item,
-      backImg: '',
+      backImg: '?',
       frontImg: item,
       flipped: false
     })
-
     return [ ...result, createCard(), createCard()]
   }, [])
-  return shuffle(cards)
+  return shuffleArray(cards)
 }
-
-function shuffle(arr) {
-  let len = arr.length
-  for (let i = 0; i < len; i++) {
-    let randomIdx = Math.floor(Math.random() * len)
-    let copyCurrent = {...arr[i]}
-    let copyRandom = {...arr[randomIdx]}
-    arr[i] = copyRandom
-    arr[randomIdx] = copyCurrent
-  }
-  return arr
+function shuffleArray(array) {
+    for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+    }
+    return array
 }
